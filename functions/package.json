@@ -1,0 +1,8 @@
+{
+  "name": "hi-stranger-functions",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@cfworker/json-schema": "^1.14.2"
+  }
+}
