@@ -1,0 +1,25 @@
+# Node & Tooling
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.wrangler/
+dist/
+build/
+coverage/
+.vscode/
+.idea/
+.DS_Store
+
+# Große/unnötige Daten
+openAIexport/
+*.gz
+*.zip
+*.tgz
+*.ndjson
+*.log
+*.sqlite
+*.db
+*.mp4
+*.mov
+*.psd

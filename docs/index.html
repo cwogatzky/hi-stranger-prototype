@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hi Stranger Docs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+  <style>
+    :root{--bg:#fff;--text:#111;--muted:#6b7280;--border:#e5e7eb;--sidebar-w:260px}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font:16px/1.5 system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;color:var(--text);background:var(--bg);display:flex}
+    .sidebar{width:var(--sidebar-w);border-right:1px solid var(--border);padding:16px;overflow:auto}
+    .brand{font-weight:700;margin:0 0 12px;font-size:14px}
+    .back{display:none;margin:0 0 8px 0;font-size:14px}
+    .back a{color:#111;text-decoration:none;padding:4px 6px;border-radius:6px}
+    .back a:hover{background:#f3f4f6}
+    .search{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px}
+    .tree{list-style:none;margin:0;padding:0;font-size:15px}
+    .tree li{margin:3px 0}
+    .tree a{display:block;padding:6px 8px;text-decoration:none;color:inherit;border-radius:6px}
+    .tree a.active,.tree a:hover{background:#f3f4f6}
+    .folder-name{font-weight:600}
+    .content{flex:1;min-width:0;padding:24px 40px;overflow:auto}
+    .doc h1{font-size:14px;margin-top:0}
+    .breadcrumbs{font-size:14px;color:var(--muted);margin-bottom:10px}
+    pre{background:#f6f8fa;padding:14px;border:1px solid var(--border);border-radius:8px;overflow:auto}
+    code{font-family:ui-monospace,Menlo,Monaco,Consolas,monospace}
+    .empty{color:var(--muted)}
+    .doc {overflow-wrap: break-word; word-break: break-word; white-space: normal;}
+    .doc p, .doc li {max-width: 800px;}
+    /* /docs/style.css  */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+        font-size:10px;
+    }
+    th, td {
+      border: 1px solid #e5e7eb; /* hellgrau */
+      padding: 6px 8px;
+      text-align: left;
+      word-break: break-word;
+      white-space: normal;
+      max-width: 280px;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+    }
+    /* ensure markdown text wraps */
+.content .doc { 
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+.content .doc p,
+.content .doc li,
+.content .doc blockquote {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  min-width: 0;
+}
+
+/* codeblocks: kein Zeilenbruch, dafür horizontales Scrollen */
+.content .doc pre {
+  white-space: pre;         /* keine harten Wraps in <pre> */
+  overflow-x: auto;
+}
+
+/* inline code darf umbrechen */
+.content .doc code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* tables & images nicht überlaufen lassen */
+.content .doc table,
+.content .doc img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* falls irgendwas noch min-width erzwingt */
+.content, .content * { min-width: 0; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h1 class="brand">Hi Stranger Docs</h1>
+    <input class="search" id="search" placeholder="Search…" />
+    <p class="back" id="back"><a href="#" id="backLink">← back</a></p>  
+    <ul class="tree" id="tree"></ul>
+      
+  </aside>
+
+  <main class="content">
+    <div class="breadcrumbs" id="crumbs"></div>
+    <article class="doc" id="doc"><p class="empty">Select a page from the left to begin.</p></article>
+  </main>
+
+<script>
+// ===== Elements =====
+const TREE_EL = document.getElementById('tree');
+const DOC_EL  = document.getElementById('doc');
+const CRUMBS  = document.getElementById('crumbs');
+const SEARCH  = document.getElementById('search');
+const BACKROW = document.getElementById('back');
+const BACKLINK= document.getElementById('backLink');
+
+// ===== State =====
+let FILES = []; // { path:'docs/pages/sub/file.md', rel:'pages/sub/file.md', folder:'sub'|null, name:'file.md', title:'File' }
+let CURRENT_FOLDER = null; // null = show folders + root files; string = specific folder
+
+// ===== Data Sources =====
+async function loadFiles(){
+  // 1) Try Cloudflare Function (live)
+  try{
+    const r = await fetch('/api/docs-pages', { cache:'no-store' });
+    if(r.ok){
+      const { items } = await r.json();
+      if(Array.isArray(items) && items.length){
+        return items.map(it => normalizePath(it.path));
+      }
+    }
+  }catch{}
+
+  // 2) Local fallback: recursively scrape /docs/pages/
+  return await scrapeDir('pages/');
+}
+
+// Recursively scrape a directory listing (autoindex HTML)
+async function scrapeDir(dir){
+  const res = await fetch('./'+dir, { cache:'no-store' });
+  if(!res.ok) return [];
+  const html = await res.text();
+  const div  = document.createElement('div'); div.innerHTML = html;
+
+  const hrefs = Array.from(div.querySelectorAll('a[href]'))
+    .map(a => a.getAttribute('href'))
+    .filter(h => !!h && !h.startsWith('../'));
+
+  const out = [];
+
+  // files in this dir
+  for(const h of hrefs.filter(h => /\.md$/i.test(h))){
+    const rel = (dir + h).replace(/^\.\/?/,'');   // pages/sub/file.md
+    out.push(normalizePath('docs/' + rel));       // docs/pages/sub/file.md
+  }
+  // subdirs
+  for(const h of hrefs.filter(h => /\/$/.test(h))){
+    const sub = await scrapeDir(dir + h.replace(/^\.\/?/,''));
+    out.push(...sub);
+  }
+  return out.sort((a,b)=> a.path.localeCompare(b.path));
+}
+
+function normalizePath(path){
+  const rel = path.replace(/^docs\//,'').replace(/^\/+/,''); // pages/sub/file.md
+  const parts = rel.split('/');
+  const name = parts.pop(); // file.md
+  const isRoot = parts.length <= 1; // 'pages' only → root
+  const folder = isRoot ? null : parts.slice(1).join('/'); // drop 'pages'
+  return {
+    path: path.startsWith('docs/') ? path : ('docs/' + rel),
+    rel,
+    folder, // null for root files
+    name,
+    title: prettyTitle(name)
+  };
+}
+
+// ===== Helpers =====
+function prettyTitle(filename){
+  return filename
+    .replace(/\.md$/i,'')
+    .replace(/[-_]/g,' ')
+    .replace(/\s+/g,' ')
+    .replace(/\b\w/g,c=>c.toUpperCase());
+}
+function routePath(){ const h=location.hash||''; const i=h.indexOf('#/'); return i===-1?'':h.slice(2); }
+function setRoute(p){ location.hash = '#/'+p; }
+function highlightActive(){
+  const p = routePath();
+  document.querySelectorAll('.tree a[data-path]').forEach(a=> a.classList.toggle('active', a.dataset.path===p));
+}
+
+function uniqueTopFolders(files){
+  // folders excluding null (root)
+  return Array.from(new Set(files.map(f => f.folder).filter(Boolean))).sort((a,b)=> a.localeCompare(b));
+}
+
+// ===== Sidebar Rendering =====
+function renderSidebar(){
+  TREE_EL.innerHTML = '';
+  BACKROW.style.display = CURRENT_FOLDER ? 'block' : 'none';
+  const q = (SEARCH.value||'').trim().toLowerCase();
+
+  if(!CURRENT_FOLDER){
+    // 1) show folders
+    const folders = uniqueTopFolders(FILES).filter(name => !q || name.toLowerCase().includes(q));
+    for(const folder of folders){
+      const li = document.createElement('li');
+      const a  = document.createElement('a');
+      a.textContent = folder;
+      a.className = 'folder-name';
+      a.href = '#';
+      a.onclick = (e)=>{ e.preventDefault(); CURRENT_FOLDER = folder; renderSidebar(); };
+      li.appendChild(a);
+      TREE_EL.appendChild(li);
+    }
+    // 2) show root-level files directly under folders
+    const rootFiles = FILES.filter(f => !f.folder).filter(f => !q || f.title.toLowerCase().includes(q));
+    for(const f of rootFiles){
+      const li = document.createElement('li');
+      const a  = document.createElement('a');
+      a.textContent = f.title;
+      a.href = '#/'+f.path;
+      a.dataset.path = f.path;
+      li.appendChild(a);
+      TREE_EL.appendChild(li);
+    }
+  } else {
+    // show files inside CURRENT_FOLDER
+    const files = FILES.filter(f => f.folder === CURRENT_FOLDER)
+                       .filter(f => !q || f.title.toLowerCase().includes(q));
+    if(files.length === 0){
+      const li = document.createElement('li');
+      li.textContent = 'No files';
+      li.style.color = '#6b7280';
+      TREE_EL.appendChild(li);
+    } else {
+      for(const f of files){
+        const li = document.createElement('li');
+        const a  = document.createElement('a');
+        a.textContent = f.title;
+        a.href = '#/'+f.path;
+        a.dataset.path = f.path;
+        li.appendChild(a);
+        TREE_EL.appendChild(li);
+      }
+    }
+  }
+  highlightActive();
+}
+
+// ===== Markdown Rendering =====
+async function renderDoc(path){
+  if(!path){
+    DOC_EL.innerHTML = '<p class="empty">Select a page from the left to begin.</p>';
+    CRUMBS.textContent = '';
+    return;
+  }
+  try{
+    const rel = './' + path.replace(/^docs\//,'');
+    const res = await fetch(rel, { cache:'no-store' });
+    if(!res.ok) throw new Error(res.status+' '+res.statusText);
+    const md = await res.text();
+    marked.setOptions({ highlight:(code,lang)=>{ try{ return hljs.highlight(code,{language:lang}).value; } catch{ return hljs.highlightAuto(code).value; } }});
+    DOC_EL.innerHTML = marked.parse(md);
+    CRUMBS.textContent = path.replace(/^docs\//,'').split('/').join(' › ');
+    highlightActive();
+  }catch(err){
+    DOC_EL.innerHTML = `<p style="color:#b91c1c">Failed to load ${path}<br><small>${err.message}</small></p>`;
+  }
+}
+
+// ===== Search & Back =====
+SEARCH.addEventListener('input', ()=> renderSidebar());
+BACKLINK.addEventListener('click', (e)=>{ e.preventDefault(); CURRENT_FOLDER = null; renderSidebar(); });
+
+// ===== Boot =====
+async function boot(){
+  FILES = await loadFiles();
+  CURRENT_FOLDER = null;
+  renderSidebar();
+  window.addEventListener('hashchange', ()=> renderDoc(routePath()));
+  const initial = routePath() || (FILES.find(f=>!f.folder)?.path || FILES[0]?.path);
+  renderDoc(initial);
+}
+boot();
+</script>
+</body>
+</html>

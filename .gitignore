@@ -1,0 +1,35 @@
+# Node.js dependencies
+node_modules/
+
+# MacOS & System Files
+.DS_Store
+
+# Wrangler (Cloudflare Workers CLI, nur lokal nötig)
+.wrangler/
+wrangler.toml
+
+# Build & Deployments
+_deployments/
+_old/
+.wrangler/tmp/
+
+# Export-/Importdaten
+openAIexport/
+*.ndjson
+*.ndjson.gz
+
+# Lokale Backups & Testdaten
+local_sys_txt/
+bulk.ndjson
+t1.ndjson
+t2.ndjson
+t2.ndjson.gz
+
+# Editor und IDE
+.vscode/
+.idea/
+*.swp
+
+# Log & temp
+*.log
+*.tmp

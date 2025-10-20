@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hi Stranger — Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+  body {
+  margin: 0;
+  padding: 0;
+    }  
+  /* Topnav */
+  .topnav {
+    font: 14px/1.4 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px 12px;
+
+  }
+  .topnav a { color: #111; text-decoration: none; margin-right: 12px; }
+  .topnav a:hover { text-decoration: underline; }
+
+  /* Banner (8pt), bündig unter Topnav */
+  .banner {
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 6px 10px;
+    font: 6pt/1.4 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    color: #111827;
+  }
+  .banner .sep { color: #6b7280; padding: 0 6px; }
+
+  /* CTA Row + Buttons */
+  .cta-row { display: flex; align-items: center; gap: 12px; padding: 12px; position: relative; }
+  .btn-primary {
+    appearance: none; border: none; background: #2563eb; color: #fff;
+    border-radius: 999px; padding: 10px 14px;
+    font: 14px/1 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary .plus {
+    display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+    line-height: 18px; text-align: center; font-weight: 100;
+    font-size: 28pt; margin-top: -5px; padding-right: 5px;
+  }
+  .btn-primary:disabled {
+    background: #e5e7eb !important; color: #6b7280 !important;
+    border: none !important; cursor: not-allowed !important; opacity: 1 !important;
+  }
+  .btn-primary:disabled:hover { cursor: not-allowed !important; }
+
+  /* Inline/Legacy UI Bits */
+  #ownerSummary { font: 14px/1.4 system-ui, Segoe UI, Roboto, Arial, sans-serif; color: #111; }
+  #ownerSummary.small { color: #6b7280; }
+  #ownerSelectArea { display: none; padding: 0 12px 12px; }
+  select.inline { padding: 6px 8px; min-width: 220px; font: 14px system-ui, Segoe UI, Roboto, Arial, sans-serif; }
+  button.inline {
+    padding: 6px 10px; font: 14px system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    cursor: pointer; border-radius: 8px; border: 1px solid #d1d5db; background: #fff;
+  }
+
+  /* Floating Panel (Owner-/User-Auswahl) */
+  .floating-panel {
+    position: absolute;
+    z-index: 9999;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    border: 1px solid #e5e7eb; 
+    border-radius: 8px;
+    background: #fff;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  /* Frames nebeneinander */
+  #framesRow {
+    display: flex; flex-wrap: wrap; gap: 16px; padding: 12px; align-items: flex-start;
+  }
+  .phone_frame {
+    width: 320px; min-height: 480px; background: #fff;
+    border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden;
+    flex: 0 0 auto;
+  }
+
+  /* Nur ein Namenslabel: alte Pill-Namen ausblenden */
+  .name-display { display: none !important; }
+  /* Legacy-Container komplett verstecken (Form/Pills), Logik bleibt erhalten */
+  #users-container { display: none !important; }
+
+  /* Header über dem Frame: Name + optionaler Badge, ohne Hintergrund/Rand */
+  .phone_header {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; background: transparent; border: none; padding: 0; margin: 0 0 4px 0;
+    text-align: center;
+  }
+  .phone_header .title {
+    font: 13px/1.2 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    color: #111; font-weight: 200;
+    margin-bottom:4px;
+  }
+  
+  .mini-link { font-size: 12px; color: #2563eb; text-decoration: none; }
+  .mini-link:hover { text-decoration: underline; }
+
+  /* Device-Frame (für legacy createFrameForUser) */
+  .device-frame { flex: 0 0 auto; display: block; margin: 0; }
+  .device-frame img.iphone { display: block; margin-top: -6px; }
+
+  /* Chat-Screen im Frame leicht nach unten, ohne Grafik zu überlappen */
+  .screen {
+    margin-top: 18px;
+    transform: translateY(0);
+    position: relative;
+  }
+/* Owner-Badge: optisch über dem Namen, ohne Layoutverschiebung */
+.owner-badge {
+  position: absolute;
+  top: -12px;             /* leicht über den Namen */
+  left: 50%;
+  transform: translateX(-50%);
+  font: 8pt/1 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+  color: #2563eb;
+  background: none;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Container (.phone_header) muss als Positionierungs-Anchor dienen */
+.phone_header {
+  position: relative;     /* macht das Badge-Positionieren möglich */
+}
+  /* Legacy-Namenslabel vollständig ausblenden (verhindert doppelten Namen) */
+  .name-display,
+  .device-header {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+/* === Intro mode: active user highlight === */
+.input-active {
+  border: 2px solid #2563eb !important;   /* kräftiger blauer Rahmen */
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.25);
+}
+
+.input-inactive {
+  border: 1px solid #d1d5db !important;
+  opacity: 0.6;
+}
+</style>
+  </head>
+
+  <body>
+    <!-- Top Navigation -->
+    <div class="topnav">
+      <a href="./index.html"><strong>Prototype</strong></a>
+      <a href="./profiles.html">Profiles</a>
+      <a href="./docs/index.html" target="blank">Docs ↗</a>
+    </div>
+
+    <!-- Banner (8pt) -->
+    <div class="banner">
+      <strong>Prototype v1.2</strong>
+      <span class="sep">|</span> AI intro moderation
+      <span class="sep">|</span> multilingual translations
+      <span class="sep">|</span> add profiles from (browser) Fstorage
+      <span class="sep">|</span> define chat owner
+      <span class="sep">|</span> <em><b>your action:</b> add owner, then users and start to run prototype</em>
+    </div>
+
+    <!-- CTA Row (left aligned, no extra box/section) -->
+    <div class="cta-row">
+  <button id="btnStartChatTop" class="btn-primary" type="button" disabled>
+    <span class="plus">+</span>
+    Start chat
+  </button>
+  <button id="btnOwnerCta" class="btn-primary" type="button" style="margin-left:8px">
+    <span class="plus">+</span>
+    Select chat owner
+  </button>
+      
+<div id="ownerSelectArea" style="display:none; padding:0 12px 12px;"></div>
+
+  <div id="ownerSummary" class="small">No owner selected yet.</div>
+</div>
+
+<!-- Owner floating panel (restored) -->
+<div id="ownerPanel" class="floating-panel" style="display:none"></div>
+    
+    
+    <!-- Hidden legacy container required by addUserSection() -->
+    <div id="users-container" style="display:none"></div>
+
+    <!-- Frames Row: Owner + Users each with own phone_frame -->
+    <div id="framesRow">
+      <!-- JS will inject frames like:
+           <div class="phone_frame" data-user-id="...">
+             <div class="phone_header">
+               <span class="title">Owner: Alice (DE)</span>
+               <a href="#" class="mini-link" data-action="change-owner">(change)</a>
+             </div>
+             <div class="phone_body">...</div>
+           </div>
+      -->
+    </div>
+
+    <!-- Hidden legacy anchors (to avoid breaking existing scripts while migrating) -->
+    <div id="addUserSection"></div>
+    <div id="chat-ui"></div>
+    <!-- Boot & main scripts -->
+    <script type="module" src="./js/app/boot.js"></script>
+    <script type="module" src="./js/script.js"></script>
+  </body>
+</html>
