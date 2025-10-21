@@ -131,15 +131,27 @@ async function loadFiles(){
   // 1) Try Cloudflare Function (live)
   try{
     const r = await fetch('/api/docs-pages', { cache:'no-store' });
-    if(r.ok){
+    if (r.ok) {
       const { items } = await r.json();
-      if(Array.isArray(items) && items.length){
-        return items.map(it => normalizePath(it.path));
+      if (Array.isArray(items) && items.length) {
+        return items.map(it => normalizePath(it.path ?? it));
       }
     }
-  }catch{}
+  } catch {}
 
-  // 2) Local fallback: recursively scrape /docs/pages/
+  // 2) Try static manifest (works on Preview/Prod)
+  try {
+    const r = await fetch('./pages/_files.json', { cache: 'no-store' });
+    if (r.ok) {
+      const j = await r.json();
+      const items = Array.isArray(j) ? j : j.items;
+      if (Array.isArray(items) && items.length) {
+        return items.map(p => normalizePath(p));
+      }
+    }
+  } catch {}
+
+  // 3) Last resort (local dev servers that expose autoindex)
   return await scrapeDir('pages/');
 }
 
