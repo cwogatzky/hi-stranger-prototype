@@ -1,12 +1,24 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Hi Stranger Docs</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+<meta charset="utf-8" />
+<title>Hi Stranger Docs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Markdown parser -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+
+<!-- Highlight.js theme + browser bundle -->
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" defer></script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.hljs) window.hljs.highlightAll();
+    // window.marked is globally available
+  });
+</script>
   <style>
     :root{--bg:#fff;--text:#111;--muted:#6b7280;--border:#e5e7eb;--sidebar-w:260px}
     *{box-sizing:border-box}
