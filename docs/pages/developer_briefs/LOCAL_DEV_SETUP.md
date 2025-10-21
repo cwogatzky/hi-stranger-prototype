@@ -1,6 +1,6 @@
 # ⚙️ Local Development & Architecture — Hi Stranger Prototype  
-_Version 1.0 (merged 17 Oct 2025)_  
-_Consolidated from `SCRIPT_ARCHITECTURE.md` + `LOCAL_DEV_SETUP.md`_
+_Version 1.1 (updated 21 Oct 2025)_
+_Consolidated from `SCRIPT_ARCHITECTURE.md` + `LOCAL_DEV_SETUP.md` + GitHub/Cloudflare integration updates_
 
 ---
 
@@ -14,13 +14,21 @@ This document merges technical accuracy with plain-language explanations so ever
 ## 1. Environment Overview
 
 **Stack**
-- **Cloudflare Workers + Pages** (local mode)  
-- **Wrangler CLI** (v4.42.2 or higher)  
+- **Cloudflare Workers + Pages** (local + production mode)
+- **Wrangler CLI** (v4.43.0 or higher)
 - **Node.js ≥ 18**  
-- **Browser-based frontend** served from local Pages environment  
-- **Cloudflare KV** for storage (no external DBs)
+- **GitHub** for version control and automated deploys
+- **Cloudflare KV** for data storage (no external DBs)
+- **Preview environment** for pre-production testing
 
-**Primary Command**
+**Environments**
+| Type | Branch | URL |
+|------|---------|-----|
+| Local | — | http://localhost:8788 |
+| Preview | `preview` | https://preview.hi-stranger-prototype.pages.dev |
+| Production | `main` | https://hi-stranger-prototype.pages.dev |
+
+**Primary Command:**
 ```bash
 wrangler pages dev ./ --local
 ```
@@ -30,7 +38,7 @@ Runs the project locally with KV bindings, Pages routing, and hot reload.
 
 ## 2. Directory & Module Architecture
 
-```
+```bash
 ai_buddy/
 ├── index.html
 ├── profiles.html
@@ -58,7 +66,7 @@ ai_buddy/
 - Communication via central **event bus** (`App.emit`, `App.on`).  
 - **Colon-based event naming** for clarity (`profiles:imported`, `moderation:ready`).  
 - `App.debug()` wraps `console.debug()` when `DEBUG=true`.  
-- Structure is designed to migrate to production Cloudflare Pages with minimal refactoring.
+- Structure is designed to migrate to Cloudflare Pages production without refactoring.
 
 ---
 
@@ -79,36 +87,38 @@ ai_buddy/
 - `.assetsignore` prevents Wrangler overload (`EMFILE` errors).  
 - Recovery shortcut:
   ```bash
-  rm -rf .wrangler
-  wrangler pages dev ./ --local
+  rm -rf .wrangler && wrangler pages dev ./ --local
   ```
 - Full rebuild restores missing directories.  
 - Local sessions recover automatically from corrupted caches.
 
 ---
 
-## 4. Wrangler Configuration
+## 4. Wrangler & Cloudflare Configuration
 
 **KV Bindings (local mode)**
 - `env.PROFILES_KV`
-- `env.IMPORT_REPORT_KV`
+- `env.IMPORT_REPORTS_KV`
 - `env.IDEMPOTENCY_KV`
 
 **Environment Variables**
-```
+```bash
 LOG_LEVEL="debug"
 ```
 
 **Compatibility Date:**  
-`2025-10-08`  
+`2025-10-20`
 > Wrangler automatically falls back if newer date isn’t supported.
+
+**Note:**
+Production and Preview now each have their own binding sets in Cloudflare Pages → *Settings → Bindings*.
 
 ---
 
 ## 5. Docs Viewer System
 
 **File:** `/docs/index.html`  
-**Purpose:** Lightweight documentation browser for team knowledge.  
+**Purpose:** Lightweight documentation browser for internal use.
 - Automatically lists and renders all `.md` files under `/docs/pages/`.  
 - Sidebar navigation with nested folders.  
 - Local access: `http://localhost:8788/docs/`  
@@ -121,7 +131,7 @@ LOG_LEVEL="debug"
 
 The `.assetsignore` file prevents Wrangler from loading unnecessary or large files (e.g., node_modules):
 
-```
+```bash
 node_modules/
 .wrangler/
 .git/
@@ -140,7 +150,8 @@ node_modules/
 |--------|----------|
 | Start local server | `wrangler pages dev ./ --local` |
 | Stop server | `Ctrl + C` |
-| Build static version | `wrangler pages build` |
+| Build static version | `npm ci` *(replaces old `wrangler pages build`)* |
+| Force redeploy | `git commit --allow-empty -m "redeploy"` → `git push` |
 | Deploy manually | `wrangler pages deploy ./dist` |
 | Update Wrangler | `npm install -g wrangler@latest` |
 
@@ -152,19 +163,17 @@ node_modules/
 **Cause:** Too many concurrent file handles during Wrangler startup.  
 **Fix:** Add `.assetsignore` as shown above; restart shell and rerun `wrangler pages dev ./ --local`.
 
----
-
 ### ❗ 422 Unprocessable Entity on `/api/profiles/import`
 **Cause:** Invalid NDJSON payload structure or schema mismatch.  
 **Fix:** Ensure payload matches `user_profile.v1` schema and contains all required nested keys (`identity`, `intent`, `behavior`, `emotional`, `interests`).
 
----
+### ❗ kv_missing
+**Cause:** Missing KV namespace binding in Cloudflare Pages environment.
+**Fix:** Add bindings under *Settings → Bindings* (Preview + Production), then redeploy.
 
 ### ❗ 405 Method Not Allowed on `/api/profiles/item`
 **Cause:** Wrong HTTP method (PUT not supported).  
 **Fix:** Use `/api/profiles/import` endpoint for updates instead.
-
----
 
 ### ❗ 500 or “Cannot read properties of undefined (reading 'pipe')”
 **Cause:** Local Wrangler version conflict or missing `.assetsignore` filter.  
@@ -182,15 +191,14 @@ If project files are accidentally moved or deleted:
 1. Stop Wrangler (`Ctrl + C`)  
 2. Recreate missing folders via Finder or CLI  
 3. Restore from backup or Git  
-4. Restart:  
+4. Restart with
    ```bash
    wrangler pages dev ./ --local
    ```
 
 If `.wrangler/` cache is corrupted:
 ```bash
-rm -rf .wrangler
-wrangler pages dev ./ --local
+rm -rf .wrangler && wrangler pages dev ./ --local
 ```
 
 > After reset, Wrangler automatically recreates KV bindings on first startup.
@@ -203,6 +211,7 @@ wrangler pages dev ./ --local
 - [x] `profiles.html` loads without 404 or 500 errors  
 - [x] All JS modules resolve (`/js/app/boot.js`, `/js/script.js`)  
 - [x] KV namespaces initialized successfully  
+- [x] Preview + Production bindings verified
 - [x] `Save` operations on profiles functional  
 - [x] `DEBUG=true` toggle tested (console output visible, no PII)
 
@@ -213,9 +222,10 @@ wrangler pages dev ./ --local
 - [Cloudflare Wrangler Docs](https://developers.cloudflare.com/workers/wrangler/)  
 - [Cloudflare KV Storage](https://developers.cloudflare.com/workers/runtime-apis/kv/)  
 - [Miniflare Local Runtime](https://developers.cloudflare.com/workers/testing/local-development/)
+- [Cloudflare Pages Environments](https://developers.cloudflare.com/pages/platform/build-configuration/)
 
 ---
 
 **Maintainer:** Carsten W.  
-**Last verified:** 17 Oct 2025  
-**Source files merged:** `SCRIPT_ARCHITECTURE.md`, `LOCAL_DEV_SETUP.md`
+**Last verified:** 21 Oct 2025
+**Source files merged:** `SCRIPT_ARCHITECTURE.md`, `LOCAL_DEV_SETUP.md`, `DEPLOYMENT_RUNBOOK.md`
