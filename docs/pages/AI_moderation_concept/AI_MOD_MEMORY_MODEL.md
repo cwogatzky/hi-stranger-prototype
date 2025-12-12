@@ -11,7 +11,7 @@ it recognizes when a conversation needs guidance, **steps in dynamically**, and 
 
 ---
 
-## 🧩 1. Core Principles
+## 🧩 1. Core-Principles
 
 | Principle | Description |
 |------------|-------------|
